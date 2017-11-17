@@ -17,6 +17,8 @@ import util.VectorMath;
 import volume.GradientVolume;
 import volume.Volume;
 
+
+
 /**
  *
  * @author michel
@@ -29,6 +31,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     TransferFunction tFunc;
     TransferFunctionEditor tfEditor;
     TransferFunction2DEditor tfEditor2D;
+    static int MAXINT = 1000000;
     
     public RaycastRenderer() {
         panel = new RaycastRendererPanel(this);
@@ -127,7 +130,8 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         
         for (int j = 0; j < image.getHeight(); j++) {
             for (int i = 0; i < image.getWidth(); i++) {
-                pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
+                //for
+                pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter) //+ viewVec[0] * (k - imageCenter)
                         + volumeCenter[0];
                 pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
                         + volumeCenter[1];
@@ -155,6 +159,23 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
             }
         }
 
+    }
+    
+    private int slice(int i, int j, double [] uVec, double [] vVec, int imageCenter, double[] volumeCenter){
+                double [] pixelCoord = new double[3];
+                pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter) + volumeCenter[0];
+                pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter) + volumeCenter[1];
+                pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter) + volumeCenter[2];
+
+                int val = getVoxel(pixelCoord);
+    }
+    
+    private int mip(){
+    return 0;
+    }
+    
+    private int compositing(){
+        return 0;
     }
 
 
