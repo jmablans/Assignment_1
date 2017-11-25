@@ -85,16 +85,28 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
 
     short getVoxel(double[] coord) {
 
-        if (coord[0] < 0 || coord[0] > volume.getDimX() || coord[1] < 0 || coord[1] > volume.getDimY()
-                || coord[2] < 0 || coord[2] > volume.getDimZ()) {
+        if (coord[0] <= 0 || coord[0] >= volume.getDimX()-1 || coord[1] <= 0 || coord[1] >= volume.getDimY()-1
+                || coord[2] <= 0 || coord[2] >= volume.getDimZ()-1) {
             return 0;
         }
-
-        int x = (int) Math.floor(coord[0]);
-        int y = (int) Math.floor(coord[1]);
-        int z = (int) Math.floor(coord[2]);
-
-        return volume.getVoxel(x, y, z);
+        double alpha = coord[0] - Math.floor(coord[0]);
+        double beta = coord[1] - Math.floor(coord[1]);
+        double gamma = coord[2] - Math.floor(coord[2]);
+        
+        int x0 = volume.getVoxel((int) Math.floor(coord[0]), (int) Math.floor(coord[1]), (int) Math.floor(coord[2]));
+        int x1 = volume.getVoxel((int) Math.ceil(coord[0]), (int) Math.floor(coord[1]), (int) Math.floor(coord[2]));
+        int x2 = volume.getVoxel((int) Math.floor(coord[0]), (int) Math.ceil(coord[1]), (int) Math.floor(coord[2]));
+        int x3 = volume.getVoxel((int) Math.ceil(coord[0]), (int) Math.ceil(coord[1]), (int) Math.floor(coord[2]));
+        int x4 = volume.getVoxel((int) Math.floor(coord[0]), (int) Math.floor(coord[1]), (int) Math.ceil(coord[2]));
+        int x5 = volume.getVoxel((int) Math.ceil(coord[0]), (int) Math.floor(coord[1]), (int) Math.ceil(coord[2]));
+        int x6 = volume.getVoxel((int) Math.floor(coord[0]), (int) Math.ceil(coord[1]), (int) Math.ceil(coord[2]));
+        int x7 = volume.getVoxel((int) Math.ceil(coord[0]), (int) Math.ceil(coord[1]), (int) Math.ceil(coord[2]));
+        
+        double result = (1.0-alpha)*(1.0-beta)*(1.0-gamma)*(double)x0 + alpha*(1.0-beta)*(1.0-gamma)*(double)x1 
+                + (1.0-alpha)*beta*(1.0-gamma)*(double)x2 + alpha*beta*(1.0-gamma)*(double)x3
+                + (1.0-alpha)*(1.0-beta)*gamma*(double)x4 + alpha*(1.0-beta)*gamma*(double)x5
+                +(1.0-alpha)*beta*gamma*(double)x6 + alpha*beta*gamma*(double)x6;
+        return (short) result; //NAVRAGEN!! Casting?
     }
 
 
@@ -130,23 +142,26 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         
         for (int j = 0; j < image.getHeight(); j++) {
             for (int i = 0; i < image.getWidth(); i++) {
-                //for
-                pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter) //+ viewVec[0] * (k - imageCenter)
-                        + volumeCenter[0];
-                pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
-                        + volumeCenter[1];
-                pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
-                        + volumeCenter[2];
-
-                int val = getVoxel(pixelCoord);
+                int maxDim = Math.max(Math.max(volume.getDimX(), volume.getDimY()), volume.getDimZ());
+                short [] values = new short[maxDim];
+                for (int k = 0; k < maxDim; k = k+1){
+                    pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter) + viewVec[0] * (k - imageCenter)
+                            + volumeCenter[0];
+                    pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter) + viewVec[1] * (k - imageCenter)
+                            + volumeCenter[1];
+                    pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter) + viewVec[2] * (k - imageCenter)
+                            + volumeCenter[2];
+                    values[k] = getVoxel(pixelCoord);
+                }
+                int val = slice(values, imageCenter);//mip(values);//
                 
                 // Map the intensity to a grey value by linear scaling
-                voxelColor.r = val/max;
-                voxelColor.g = voxelColor.r;
-                voxelColor.b = voxelColor.r;
-                voxelColor.a = val > 0 ? 1.0 : 0.0;  // this makes intensity 0 completely transparent and the rest opaque
+//                voxelColor.r = val/max;
+//                voxelColor.g = voxelColor.r;
+//                voxelColor.b = voxelColor.r;
+//                voxelColor.a = val > 0 ? 1.0 : 0.0;  // this makes intensity 0 completely transparent and the rest opaque
                 // Alternatively, apply the transfer function to obtain a color
-                // voxelColor = tFunc.getColor(val);
+                //voxelColor = tFunc.getColor(val);
                 
                 
                 // BufferedImage expects a pixel color packed as ARGB in an int
@@ -161,21 +176,23 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
 
     }
     
-    private int slice(int i, int j, double [] uVec, double [] vVec, int imageCenter, double[] volumeCenter){
-                double [] pixelCoord = new double[3];
-                pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter) + volumeCenter[0];
-                pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter) + volumeCenter[1];
-                pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter) + volumeCenter[2];
-
-                int val = getVoxel(pixelCoord);
+    private int slice(short [] values, int imagecenter){
+                return values[imagecenter];
     }
     
-    private int mip(){
-    return 0;
+    private int mip(short [] values){
+        short max = 0;
+        for (int i = 0; i < values.length; i++){
+            if(values[i]>max)
+                max = values[i];
+        }
+        return max;
     }
     
-    private int compositing(){
-        return 0;
+    private int compositing(short [] values, TFColor voxelColor){
+        
+        for(int i =0; i < values.length; i++)
+            voxelColor = tFunc.getColor(val);
     }
 
 
