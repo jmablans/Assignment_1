@@ -153,15 +153,23 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                             + volumeCenter[2];
                     values[k] = getVoxel(pixelCoord);
                 }
-                int val = slice(values, imageCenter);//mip(values);//
+                /*
+                // Slice:
+                int val = slice(values, imageCenter);
+                voxelColor = tFunc.getColor(val);
+                */
                 
+                /*
+                // MIP:
+                int val = mip(values);
                 // Map the intensity to a grey value by linear scaling
-//                voxelColor.r = val/max;
-//                voxelColor.g = voxelColor.r;
-//                voxelColor.b = voxelColor.r;
-//                voxelColor.a = val > 0 ? 1.0 : 0.0;  // this makes intensity 0 completely transparent and the rest opaque
-                // Alternatively, apply the transfer function to obtain a color
-                //voxelColor = tFunc.getColor(val);
+                voxelColor.r = val/max;
+                voxelColor.g = voxelColor.r;
+                voxelColor.b = voxelColor.r;
+                voxelColor.a = val > 0 ? 1.0 : 0.0;
+                */
+                
+                voxelColor = compositing(values);
                 
                 
                 // BufferedImage expects a pixel color packed as ARGB in an int
@@ -189,10 +197,27 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         return max;
     }
     
-    private int compositing(short [] values, TFColor voxelColor){
-        
+    private TFColor compositing(short [] values){
+        TFColor [] colors = new TFColor[values.length];
         for(int i =0; i < values.length; i++)
-            voxelColor = tFunc.getColor(val);
+            colors[i] = tFunc.getColor(values[i]);
+        
+        double [] startvalues = new double[]{1.0, 1.0,1.0};
+        double [] compvalues = comp(colors, colors.length-1, startvalues); 
+        
+        return new TFColor(compvalues[0], compvalues[1], compvalues[2], 1.0);
+    }
+    
+    private double [] comp(TFColor[] colors, int i, double [] oldvalue){
+        if(i<=0)
+            return oldvalue;
+        else{
+            double [] value = new double [3];
+            value[0] = colors[i].r*colors[i].a + (1-colors[i].a)*oldvalue[0];
+            value[1] = colors[i].g*colors[i].a + (1-colors[i].a)*oldvalue[1];
+            value[2] = colors[i].b*colors[i].a + (1-colors[i].a)*oldvalue[2];
+            return comp(colors, (i-1), value);
+        }
     }
 
 
