@@ -16,6 +16,7 @@ import util.TFChangeListener;
 import util.VectorMath;
 import volume.GradientVolume;
 import volume.Volume;
+import volume.VoxelGradient;
 
 
 
@@ -32,6 +33,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     TransferFunctionEditor tfEditor;
     TransferFunction2DEditor tfEditor2D;
     static int MAXINT = 1000000;
+    Mode mode = Mode.slicer;
     
     public RaycastRenderer() {
         panel = new RaycastRendererPanel(this);
@@ -58,7 +60,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         tFunc = new TransferFunction(volume.getMinimum(), volume.getMaximum());
         
         // uncomment this to initialize the TF with good starting values for the orange dataset 
-        //tFunc.setTestFunc();
+        tFunc.setTestFunc();
         
         
         tFunc.addTFChangeListener(this);
@@ -80,6 +82,14 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     
     public TransferFunctionEditor getTFPanel() {
         return tfEditor;
+    }
+    
+    private VoxelGradient getGradient(double[] coord) {
+        if (coord[0] < 0 || coord[0] > volume.getDimX()-1 || coord[1] < 0 || coord[1] > volume.getDimY()-1
+                || coord[2] < 0 || coord[2] > volume.getDimZ()-1) {
+            return new VoxelGradient();
+        }
+        return gradients.getGradient((int)coord[0], (int)coord[1], (int)coord[2]);
     }
      
 
@@ -108,17 +118,15 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 +(1.0-alpha)*beta*gamma*(double)x6 + alpha*beta*gamma*(double)x6;
         return (short) result; //NAVRAGEN!! Casting?
     }
+    
 
-
-    void slicer(double[] viewMatrix) {
-
+    void calculate(double[] viewMatrix, Mode mode) {
         // clear image
         for (int j = 0; j < image.getHeight(); j++) {
             for (int i = 0; i < image.getWidth(); i++) {
                 image.setRGB(i, j, 0);
             }
         }
-
         // vector uVec and vVec define a plane through the origin, 
         // perpendicular to the view vector viewVec
         double[] viewVec = new double[3];
@@ -139,39 +147,54 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         double max = volume.getMaximum();
         TFColor voxelColor = new TFColor();
 
-        
-        for (int j = 0; j < image.getHeight(); j++) {
-            for (int i = 0; i < image.getWidth(); i++) {
-                int maxDim = Math.max(Math.max(volume.getDimX(), volume.getDimY()), volume.getDimZ());
-                short [] values = new short[maxDim];
-                for (int k = 0; k < maxDim; k = k+1){
-                    pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter) + viewVec[0] * (k - imageCenter)
+        if (mode == Mode.slicer){
+            for (int j = 0; j < image.getHeight(); j++) {
+                for (int i = 0; i < image.getWidth(); i++) {
+                    pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
                             + volumeCenter[0];
-                    pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter) + viewVec[1] * (k - imageCenter)
+                    pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
                             + volumeCenter[1];
-                    pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter) + viewVec[2] * (k - imageCenter)
-                            + volumeCenter[2];
-                    values[k] = getVoxel(pixelCoord);
-                }
-                /*
-                // Slice:
-                int val = slice(values, imageCenter);
+                    pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter)
+                            + volumeCenter[2];           
+                int val = getVoxel(pixelCoord);
                 voxelColor = tFunc.getColor(val);
-                */
-                
-                /*
-                // MIP:
-                int val = mip(values);
-                // Map the intensity to a grey value by linear scaling
-                voxelColor.r = val/max;
-                voxelColor.g = voxelColor.r;
-                voxelColor.b = voxelColor.r;
-                voxelColor.a = val > 0 ? 1.0 : 0.0;
-                */
-                
-                voxelColor = compositing(values);
-                
-                
+                int c_alpha = voxelColor.a <= 1.0 ? (int) Math.floor(voxelColor.a * 255) : 255;
+                int c_red = voxelColor.r <= 1.0 ? (int) Math.floor(voxelColor.r * 255) : 255;
+                int c_green = voxelColor.g <= 1.0 ? (int) Math.floor(voxelColor.g * 255) : 255;
+                int c_blue = voxelColor.b <= 1.0 ? (int) Math.floor(voxelColor.b * 255) : 255;
+                int pixelColor = (c_alpha << 24) | (c_red << 16) | (c_green << 8) | c_blue;
+                image.setRGB(i, j, pixelColor);
+                }
+            }
+        }
+        else{
+            for (int j = 0; j < image.getHeight(); j++) {
+                for (int i = 0; i < image.getWidth(); i++) {
+                    int maxDim = Math.max(Math.max(volume.getDimX(), volume.getDimY()), volume.getDimZ());
+                    short [] values = new short[maxDim];
+                    VoxelGradient [] grads = new VoxelGradient[maxDim];
+                    for (int k = 0; k < maxDim; k = k+1){
+                        pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter) + viewVec[0] * (k - imageCenter)
+                                + volumeCenter[0];
+                        pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter) + viewVec[1] * (k - imageCenter)
+                                + volumeCenter[1];
+                        pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter) + viewVec[2] * (k - imageCenter)
+                                + volumeCenter[2];
+                        grads[k] = getGradient(pixelCoord);
+                        values[k] = getVoxel(pixelCoord);
+                    }
+                if (mode == Mode.mip){
+                    int val = mip(values);
+                    // Map the intensity to a grey value by linear scaling
+                    voxelColor.r = val/max;
+                    voxelColor.g = voxelColor.r;
+                    voxelColor.b = voxelColor.r;
+                    voxelColor.a = val > 0 ? 1.0 : 0.0;
+                }
+                else if (mode == Mode.compositing)
+                    voxelColor = compositing(values);
+                else if (mode == Mode.transfer2d)
+                    voxelColor = opacityCalc(values, grads, viewVec);
                 // BufferedImage expects a pixel color packed as ARGB in an int
                 int c_alpha = voxelColor.a <= 1.0 ? (int) Math.floor(voxelColor.a * 255) : 255;
                 int c_red = voxelColor.r <= 1.0 ? (int) Math.floor(voxelColor.r * 255) : 255;
@@ -179,13 +202,9 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 int c_blue = voxelColor.b <= 1.0 ? (int) Math.floor(voxelColor.b * 255) : 255;
                 int pixelColor = (c_alpha << 24) | (c_red << 16) | (c_green << 8) | c_blue;
                 image.setRGB(i, j, pixelColor);
+                }
             }
         }
-
-    }
-    
-    private int slice(short [] values, int imagecenter){
-                return values[imagecenter];
     }
     
     private int mip(short [] values){
@@ -202,7 +221,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         for(int i =0; i < values.length; i++)
             colors[i] = tFunc.getColor(values[i]);
         
-        double [] startvalues = new double[]{1.0, 1.0,1.0};
+        double [] startvalues = new double[]{0.0, 0.0,0.0};
         double [] compvalues = comp(colors, colors.length-1, startvalues); 
         
         return new TFColor(compvalues[0], compvalues[1], compvalues[2], 1.0);
@@ -219,6 +238,55 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
             return comp(colors, (i-1), value);
         }
     }
+    
+    private TFColor opacityCalc(short [] values, VoxelGradient [] gradients, double[] viewVec){
+        TFColor c = tfEditor2D.triangleWidget.color;
+        double r = tfEditor2D.triangleWidget.radius;
+        short fv = tfEditor2D.triangleWidget.baseIntensity;
+        TFColor [] colors = new TFColor[values.length];
+        
+        
+        for (int i =0; i<values.length; i++){
+            float gradmag = gradients[i].mag;
+            c = colorCalc(c,  gradients[i], viewVec);
+            if (gradmag == 0 && values[i] == fv)
+                colors[i] = new TFColor(c.r,c.g,c.b,c.a*1);
+            else if (gradients[i].mag > 0 && (values[i]-(r*gradmag)<= fv && values[i]+(r*gradmag) >= fv)){
+                double alpha = 1 - (1/r)*((fv-values[i])/gradmag);
+                colors[i] = new TFColor(c.r,c.g,c.b,c.a*alpha);
+            }
+            else
+                colors[i] = new TFColor(c.r,c.g,c.b,c.a*0);
+        }
+        double [] startvalues = new double[]{1.0, 1.0,1.0};
+        double [] compvalues = comp(colors, colors.length-1, startvalues); 
+        
+        return new TFColor(compvalues[0], compvalues[1], compvalues[2], 1.0);
+    }
+    
+    private TFColor colorCalc(TFColor c, VoxelGradient grad, double[] viewVec){
+        double magV = Math.sqrt(c.r*c.r+c.g*c.g+c.b*c.b);
+        double [] H = new double[]{(2*viewVec[0])/magV, (2*viewVec[1])/magV, (2*viewVec[2])/magV};
+        float [] N = new float[]{grad.x/grad.mag, grad.y/grad.mag, grad.z/grad.mag};
+        double Ia = 0.1;
+        double kdiff = 0.7;
+        double kspec = 0.2;
+        double alpha = 10;
+        double r = 0.0;//Ia + c.r*kdiff*();
+        double g = 0.0;
+        double b = 0.0;
+        return new TFColor(r,g,b,c.a);        
+    }
+    
+    
+    
+//    private TFColor Levoy (short [] values){
+//        TFColor [] colors = new TFColor[values.length];
+//        for(int i =0; i < values.length; i++)
+//            colors[i] = tFunc.getColor(values[i]);
+//        
+//        return new TFColor();
+//    }
 
 
     private void drawBoundingBox(GL2 gl) {
@@ -279,11 +347,19 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         gl.glPopAttrib();
 
     }
+    
+    private enum Mode {
+    slicer, mip, compositing, transfer2d;
+    }
+    
+    public void setMode(String mode){
+        Mode m = Mode.valueOf(mode);
+        this.mode = m;
+    }
 
     @Override
     public void visualize(GL2 gl) {
-
-
+        //TODO: Change this:
         if (volume == null) {
             return;
         }
@@ -293,8 +369,8 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         gl.glGetDoublev(GL2.GL_MODELVIEW_MATRIX, viewMatrix, 0);
 
         long startTime = System.currentTimeMillis();
-        slicer(viewMatrix);    
-        
+        calculate(viewMatrix, mode);          
+           
         long endTime = System.currentTimeMillis();
         double runningTime = (endTime - startTime);
         panel.setSpeedLabel(Double.toString(runningTime));
