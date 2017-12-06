@@ -248,15 +248,19 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         
         for (int i =0; i<values.length; i++){
             float gradmag = gradients[i].mag;
-            c = colorCalc(c,  gradients[i], viewVec);
-            if (gradmag == 0 && values[i] == fv)
-                colors[i] = new TFColor(c.r,c.g,c.b,c.a*1);
-            else if (gradients[i].mag > 0 && (values[i]-(r*gradmag)<= fv && values[i]+(r*gradmag) >= fv)){
-                double alpha = 1 - (1/r)*((fv-values[i])/gradmag);
-                colors[i] = new TFColor(c.r,c.g,c.b,c.a*alpha);
-            }
-            else
+            if (gradmag > tfEditor2D.triangleWidget.maxGrad || gradmag < tfEditor2D.triangleWidget.minGrad)
                 colors[i] = new TFColor(c.r,c.g,c.b,c.a*0);
+            else{
+//                c = colorCalc(c,  gradients[i], viewVec);
+                if (gradmag == 0 && values[i] == fv)
+                    colors[i] = new TFColor(c.r,c.g,c.b,c.a*1);
+                else if (gradients[i].mag > 0 && (values[i]-(r*gradmag)<= fv && values[i]+(r*gradmag) >= fv)){
+                    double alpha = 1 - (1/r)*((fv-values[i])/gradmag);
+                    colors[i] = new TFColor(c.r,c.g,c.b,c.a*alpha);
+                }
+                else
+                    colors[i] = new TFColor(c.r,c.g,c.b,c.a*0);
+            }
         }
         double [] startvalues = new double[]{1.0, 1.0,1.0};
         double [] compvalues = comp(colors, colors.length-1, startvalues); 
