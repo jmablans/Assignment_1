@@ -86,6 +86,11 @@ public class RaycastRendererPanel extends javax.swing.JPanel {
         });
 
         shadingCheckbox.setText("Volume shading");
+        shadingCheckbox.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                shadingCheckboxStateChanged(evt);
+            }
+        });
         shadingCheckbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 shadingCheckboxActionPerformed(evt);
@@ -153,8 +158,14 @@ public class RaycastRendererPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_tf2dButtonActionPerformed
 
     private void shadingCheckboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_shadingCheckboxActionPerformed
-        JOptionPane.showMessageDialog(this, "Not implemented.");
+        boolean b = renderer.getShading();
+        renderer.setShading(!b);
+        renderer.changed();
     }//GEN-LAST:event_shadingCheckboxActionPerformed
+
+    private void shadingCheckboxStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_shadingCheckboxStateChanged
+        // TODO add your handling code here:
+    }//GEN-LAST:event_shadingCheckboxStateChanged
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.ButtonGroup buttonGroup1;

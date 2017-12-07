@@ -34,6 +34,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     TransferFunction2DEditor tfEditor2D;
     static int MAXINT = 1000000;
     Mode mode = Mode.slicer;
+    Boolean shading = false;
     
     public RaycastRenderer() {
         panel = new RaycastRendererPanel(this);
@@ -82,6 +83,14 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     
     public TransferFunctionEditor getTFPanel() {
         return tfEditor;
+    }
+    
+    public void setShading(boolean b){
+        this.shading = b;
+    }
+    
+    public Boolean getShading(){
+        return this.shading;
     }
     
     private VoxelGradient getGradient(double[] coord) {
@@ -251,10 +260,14 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
             if (gradmag > tfEditor2D.triangleWidget.maxGrad || gradmag < tfEditor2D.triangleWidget.minGrad)
                 colors[i] = new TFColor(c.r,c.g,c.b,c.a*0);
             else{
-//                c = colorCalc(c,  gradients[i], viewVec);
-                if (gradmag == 0 && values[i] == fv)
+                if (gradmag == 0 && values[i] == fv){
+                    if(shading)
+                        c = colorCalc(c,  gradients[i], viewVec);
                     colors[i] = new TFColor(c.r,c.g,c.b,c.a*1);
+                }
                 else if (gradients[i].mag > 0 && (values[i]-(r*gradmag)<= fv && values[i]+(r*gradmag) >= fv)){
+                    if(shading)
+                        c = colorCalc(c,  gradients[i], viewVec);
                     double alpha = 1 - (1/r)*((fv-values[i])/gradmag);
                     colors[i] = new TFColor(c.r,c.g,c.b,c.a*alpha);
                 }
@@ -262,35 +275,27 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                     colors[i] = new TFColor(c.r,c.g,c.b,c.a*0);
             }
         }
-        double [] startvalues = new double[]{1.0, 1.0,1.0};
+        double [] startvalues = new double[]{0.0, 0.0,0.0};
         double [] compvalues = comp(colors, colors.length-1, startvalues); 
         
         return new TFColor(compvalues[0], compvalues[1], compvalues[2], 1.0);
     }
     
     private TFColor colorCalc(TFColor c, VoxelGradient grad, double[] viewVec){
-        double magV = Math.sqrt(c.r*c.r+c.g*c.g+c.b*c.b);
-        double [] H = new double[]{(2*viewVec[0])/magV, (2*viewVec[1])/magV, (2*viewVec[2])/magV};
-        float [] N = new float[]{grad.x/grad.mag, grad.y/grad.mag, grad.z/grad.mag};
+        double magVxV = Math.sqrt(Math.pow(2*viewVec[0],2)+Math.pow(2*viewVec[1],2)+Math.pow(2*viewVec[2],2));
+        double [] H = new double[]{(2*viewVec[0])/magVxV, (2*viewVec[1])/magVxV, (2*viewVec[2])/magVxV};
+        double [] N = new double[]{(double)(grad.x/grad.mag), (double)(grad.y/grad.mag), (double)(grad.z/grad.mag)}; 
         double Ia = 0.1;
         double kdiff = 0.7;
         double kspec = 0.2;
         double alpha = 10;
-        double r = 0.0;//Ia + c.r*kdiff*();
-        double g = 0.0;
-        double b = 0.0;
+        double LxN = N[0]*viewVec[0] + N[1]*viewVec[1] + N[2]*viewVec[2];
+        double NxH = N[0]*H[0]+N[1]*H[1]+N[2]*H[2];
+        double r = Ia + c.r*kdiff*LxN + kspec*Math.pow(NxH, alpha);
+        double g = Ia + c.g*kdiff*LxN + kspec*Math.pow(NxH, alpha);
+        double b = Ia + c.b*kdiff*LxN + kspec*Math.pow(NxH, alpha);
         return new TFColor(r,g,b,c.a);        
     }
-    
-    
-    
-//    private TFColor Levoy (short [] values){
-//        TFColor [] colors = new TFColor[values.length];
-//        for(int i =0; i < values.length; i++)
-//            colors[i] = tFunc.getColor(values[i]);
-//        
-//        return new TFColor();
-//    }
 
 
     private void drawBoundingBox(GL2 gl) {

@@ -47,7 +47,8 @@ public class TransferFunction2DEditor extends javax.swing.JPanel {
         labelMinVal.setText("0");
         labelMaxVal.setText(Integer.toString(maxIntensity));
 
-        triangleWidget = new TriangleWidget((short) (maxIntensity / 2), 0.2, 0, maxGradientMagnitude);
+//        triangleWidget = new TriangleWidget((short) (maxIntensity / 2), 0.2, 0, maxGradientMagnitude);
+        triangleWidget = new TriangleWidget((short) 31, 1.15, 0, maxGradientMagnitude);
         setSelectedInfo();
     }
 
@@ -87,6 +88,8 @@ public class TransferFunction2DEditor extends javax.swing.JPanel {
         intensityLabel.setText(Integer.toString(triangleWidget.baseIntensity));
         radiusLabel.setText(String.format("%.3f", triangleWidget.radius));
         opacityLabel.setText(String.format("%.1f", triangleWidget.color.a));
+        minLabel.setText(Double.toString(triangleWidget.minGrad));
+        maxLabel.setText(Double.toString(triangleWidget.maxGrad));
         colorButton.setBackground(new Color((float) triangleWidget.color.r, (float) triangleWidget.color.g, (float) triangleWidget.color.b));
     }
 
@@ -313,7 +316,7 @@ public class TransferFunction2DEditor extends javax.swing.JPanel {
                 value = 0;
             } 
             if (value > 1.0) {
-                value = this.maxGradientMagnitude;
+                value = 1.0;
             }
             triangleWidget.color.a = value;
         } catch (NumberFormatException e) {
@@ -325,11 +328,11 @@ public class TransferFunction2DEditor extends javax.swing.JPanel {
 
     private void minLabelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_minLabelActionPerformed
         try {
-            double value = Double.parseDouble(opacityLabel.getText());
+            double value = Double.parseDouble(minLabel.getText());
             if (value < 0) {
                 value = 0;
             } 
-            if (value > 1.0) {
+            if (value > maxGradientMagnitude) {
                 value = this.maxGradientMagnitude;
             }
             triangleWidget.minGrad = value;
@@ -342,16 +345,16 @@ public class TransferFunction2DEditor extends javax.swing.JPanel {
 
     private void maxLabelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_maxLabelActionPerformed
         try {
-            double value = Double.parseDouble(opacityLabel.getText());
+            double value = Double.parseDouble(maxLabel.getText());
             if (value < 0) {
                 value = 0;
             } 
-            if (value > 1.0) {
-                value = this.maxGradientMagnitude;
+            if (value > maxGradientMagnitude) {
+                value = maxGradientMagnitude;
             }
             triangleWidget.maxGrad = value;
         } catch (NumberFormatException e) {
-            triangleWidget.maxGrad = this.maxGradientMagnitude;
+            triangleWidget.maxGrad = maxGradientMagnitude;
         }
         setSelectedInfo();
         changed();
