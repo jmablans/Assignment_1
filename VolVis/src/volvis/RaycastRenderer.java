@@ -291,10 +291,14 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         double alpha = 10;
         double LxN = N[0]*viewVec[0] + N[1]*viewVec[1] + N[2]*viewVec[2];
         double NxH = N[0]*H[0]+N[1]*H[1]+N[2]*H[2];
-        double r = Ia + c.r*kdiff*LxN + kspec*Math.pow(NxH, alpha);
-        double g = Ia + c.g*kdiff*LxN + kspec*Math.pow(NxH, alpha);
-        double b = Ia + c.b*kdiff*LxN + kspec*Math.pow(NxH, alpha);
-        return new TFColor(r,g,b,c.a);        
+        if(LxN>0 && NxH>0){
+            double r = Ia + c.r*kdiff*LxN + kspec*Math.pow(NxH, alpha);
+            double g = Ia + c.g*kdiff*LxN + kspec*Math.pow(NxH, alpha);
+            double b = Ia + c.b*kdiff*LxN + kspec*Math.pow(NxH, alpha);
+            return new TFColor(r,g,b,c.a);
+        }
+        else
+            return new TFColor(c.r,c.g,c.b,c.a);
     }
 
 
