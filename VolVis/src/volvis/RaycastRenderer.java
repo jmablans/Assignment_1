@@ -55,7 +55,10 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         if (imageSize % 2 != 0) {
             imageSize = imageSize + 1;
         }
+        
         image = new BufferedImage(imageSize, imageSize, BufferedImage.TYPE_INT_ARGB);
+        emptyImage = new BufferedImage(imageSize, imageSize, BufferedImage.TYPE_INT_ARGB);
+        
         // create a standard TF where lowest intensity maps to black, the highest to white, and opacity increases
         // linearly from 0.0 to 1.0 over the intensity range
         tFunc = new TransferFunction(volume.getMinimum(), volume.getMaximum());
@@ -129,7 +132,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
     }
     
 
-    void calculate(double[] viewMatrix, Mode mode) {
+    void calculate(double[] viewMatrix, Mode mode, int step) {
         // clear image
         for (int j = 0; j < image.getHeight(); j++) {
             for (int i = 0; i < image.getWidth(); i++) {
@@ -157,8 +160,8 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         TFColor voxelColor = new TFColor();
 
         if (mode == Mode.slicer){
-            for (int j = 0; j < image.getHeight(); j++) {
-                for (int i = 0; i < image.getWidth(); i++) {
+            for (int j = 0; j < image.getHeight(); j+=step) {
+                for (int i = 0; i < image.getWidth(); i+=step) {
                     pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter)
                             + volumeCenter[0];
                     pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter)
@@ -177,8 +180,8 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
             }
         }
         else{
-            for (int j = 0; j < image.getHeight(); j++) {
-                for (int i = 0; i < image.getWidth(); i++) {
+            for (int j = 0; j < image.getHeight(); j+=step) {
+                for (int i = 0; i < image.getWidth(); i+=step) {
                     int maxDim = Math.max(Math.max(volume.getDimX(), volume.getDimY()), volume.getDimZ());
                     short [] values = new short[maxDim];
                     VoxelGradient [] grads = new VoxelGradient[maxDim];
@@ -214,6 +217,16 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
                 }
             }
         }
+        if(interactiveMode)
+            for (int j = 0; j < image.getHeight(); j++) {
+                for (int i = 0; i < image.getWidth(); i++) {
+                    if(i%10>0 || j%10>0){
+                        int sourceI = Math.floorDiv(i, 10)*10;
+                        int sourceJ = Math.floorDiv(j, 10)*10;
+                        image.setRGB(i, j, image.getRGB(sourceI,sourceJ));
+                    }
+                }
+            }
     }
     
     private int mip(short [] values){
@@ -382,7 +395,15 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         gl.glGetDoublev(GL2.GL_MODELVIEW_MATRIX, viewMatrix, 0);
 
         long startTime = System.currentTimeMillis();
-        calculate(viewMatrix, mode);          
+//        BufferedImage i;
+        if (!interactiveMode){
+//            i = image;
+            calculate(viewMatrix, mode, 1); 
+        }
+        else
+            calculate(viewMatrix, mode, 5); 
+//            i= emptyImage;
+
            
         long endTime = System.currentTimeMillis();
         double runningTime = (endTime - startTime);
@@ -425,6 +446,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
 
     }
     private BufferedImage image;
+    private BufferedImage emptyImage;
     private double[] viewMatrix = new double[4 * 4];
 
     @Override
