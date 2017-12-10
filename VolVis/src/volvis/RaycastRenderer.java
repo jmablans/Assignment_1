@@ -17,6 +17,7 @@ import util.VectorMath;
 import volume.GradientVolume;
 import volume.Volume;
 import volume.VoxelGradient;
+import java.util.ArrayList;
 
 
 
@@ -183,17 +184,17 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
             for (int j = 0; j < image.getHeight(); j+=step) {
                 for (int i = 0; i < image.getWidth(); i+=step) {
                     int maxDim = Math.max(Math.max(volume.getDimX(), volume.getDimY()), volume.getDimZ());
-                    short [] values = new short[maxDim];
-                    VoxelGradient [] grads = new VoxelGradient[maxDim];
-                    for (int k = 0; k < maxDim; k = k+1){
+                    short [] values = new short[maxDim/2];
+                    ArrayList <VoxelGradient> grads = new ArrayList<VoxelGradient>();
+                    for (int k = 0; k < maxDim; k = k+2){
                         pixelCoord[0] = uVec[0] * (i - imageCenter) + vVec[0] * (j - imageCenter) + viewVec[0] * (k - imageCenter)
                                 + volumeCenter[0];
                         pixelCoord[1] = uVec[1] * (i - imageCenter) + vVec[1] * (j - imageCenter) + viewVec[1] * (k - imageCenter)
                                 + volumeCenter[1];
                         pixelCoord[2] = uVec[2] * (i - imageCenter) + vVec[2] * (j - imageCenter) + viewVec[2] * (k - imageCenter)
                                 + volumeCenter[2];
-                        grads[k] = getGradient(pixelCoord);
-                        values[k] = getVoxel(pixelCoord);
+                        grads.add(getGradient(pixelCoord));
+                        values[k/2] = getVoxel(pixelCoord);
                     }
                 if (mode == Mode.mip){
                     int val = mip(values);
@@ -220,9 +221,9 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         if(interactiveMode)
             for (int j = 0; j < image.getHeight(); j++) {
                 for (int i = 0; i < image.getWidth(); i++) {
-                    if(i%10>0 || j%10>0){
-                        int sourceI = Math.floorDiv(i, 10)*10;
-                        int sourceJ = Math.floorDiv(j, 10)*10;
+                    if(i%step>0 || j%step>0){
+                        int sourceI = Math.floorDiv(i, step)*step;
+                        int sourceJ = Math.floorDiv(j, step)*step;
                         image.setRGB(i, j, image.getRGB(sourceI,sourceJ));
                     }
                 }
@@ -261,7 +262,7 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         }
     }
     
-    private TFColor opacityCalc(short [] values, VoxelGradient [] gradients, double[] viewVec){
+    private TFColor opacityCalc(short [] values, ArrayList<VoxelGradient> gradients, double[] viewVec){
         TFColor c = tfEditor2D.triangleWidget.color;
         double r = tfEditor2D.triangleWidget.radius;
         short fv = tfEditor2D.triangleWidget.baseIntensity;
@@ -269,18 +270,18 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         
         
         for (int i =0; i<values.length; i++){
-            float gradmag = gradients[i].mag;
+            float gradmag = gradients.get(i).mag;
             if (gradmag > tfEditor2D.triangleWidget.maxGrad || gradmag < tfEditor2D.triangleWidget.minGrad)
                 colors[i] = new TFColor(c.r,c.g,c.b,c.a*0);
             else{
                 if (gradmag == 0 && values[i] == fv){
                     if(shading)
-                        c = colorCalc(c,  gradients[i], viewVec);
+                        c = colorCalc(c,  gradients.get(i), viewVec);
                     colors[i] = new TFColor(c.r,c.g,c.b,c.a*1);
                 }
-                else if (gradients[i].mag > 0 && (values[i]-(r*gradmag)<= fv && values[i]+(r*gradmag) >= fv)){
+                else if (gradients.get(i).mag > 0 && (values[i]-(r*gradmag)<= fv && values[i]+(r*gradmag) >= fv)){
                     if(shading)
-                        c = colorCalc(c,  gradients[i], viewVec);
+                        c = colorCalc(c,  gradients.get(i), viewVec);
                     double alpha = 1 - (1/r)*((fv-values[i])/gradmag);
                     colors[i] = new TFColor(c.r,c.g,c.b,c.a*alpha);
                 }
@@ -391,7 +392,6 @@ public class RaycastRenderer extends Renderer implements TFChangeListener {
         }
 
         drawBoundingBox(gl);
-
         gl.glGetDoublev(GL2.GL_MODELVIEW_MATRIX, viewMatrix, 0);
 
         long startTime = System.currentTimeMillis();
